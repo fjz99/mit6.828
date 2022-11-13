@@ -1,0 +1,15 @@
+{
+    "files.associations": {
+        "*.md": "markdown",
+        "*.rmd": "markdown",
+        "strace_out": "log",
+        "console.h": "c",
+        "stdio.h": "c",
+        "stdarg.h": "c",
+        "x86.h": "c",
+        "types.h": "c",
+        "kdebug.h": "c",
+        "monitor.h": "c",
+        "assert.h": "c"
+    }
+}
