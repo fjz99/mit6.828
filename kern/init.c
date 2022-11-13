@@ -30,8 +30,6 @@ i386_init(void)
 	mem_init();
 
 
-	cprintf("6828 decimal is %o octal!\n", 6828);
-
 	// Drop into the kernel monitor.
 	while (1)
 		monitor(NULL);

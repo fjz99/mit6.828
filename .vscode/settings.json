@@ -10,6 +10,7 @@
         "types.h": "c",
         "kdebug.h": "c",
         "monitor.h": "c",
-        "assert.h": "c"
+        "assert.h": "c",
+        "kclock.h": "c"
     }
 }

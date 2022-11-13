@@ -11,6 +11,8 @@
 
 extern char bootstacktop[], bootstack[];
 
+// 全局page数组，无论如何都会在内存
+// 顺序必须符合物理内存顺序，这样就可以直接把物理内存转换成PageInfo
 extern struct PageInfo *pages;
 extern size_t npages;
 
@@ -62,6 +64,7 @@ void	page_decref(struct PageInfo *pp);
 
 void	tlb_invalidate(pde_t *pgdir, void *va);
 
+// 得到这个page的物理首地址
 static inline physaddr_t
 page2pa(struct PageInfo *pp)
 {
