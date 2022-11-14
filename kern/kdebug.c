@@ -192,3 +192,34 @@ int debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info) {
 
   return 0;
 }
+
+
+int backtrace() {
+  cprintf("Stack backtrace:\n");
+  uintptr_t *ebp = (uintptr_t *)read_ebp();
+  while (true) {
+    uintptr_t eip = *(ebp + 1) - 5;
+    struct Eipdebuginfo info;
+    debuginfo_eip(eip, &info);
+
+    cprintf("  ebp %08x  eip %08x  args", ebp, eip);  //指令长度是5个字节
+    for (uintptr_t i = 1; i <= info.eip_fn_narg; ++i) {
+      cprintf(" %08x", *(ebp + 1 + i));
+    }
+    cprintf("\n");
+    cprintf("      %s:%d: %.*s+%d\n", info.eip_file, info.eip_line,
+            info.eip_fn_namelen, info.eip_fn_name, eip - info.eip_fn_addr);
+    ebp = (uintptr_t *)*ebp;
+    if (ebp == 0) break;
+  }
+  return 0;
+}
+
+bool check_bits_max(uint32_t arg, uint32_t bits) {
+  if ((arg & ((1 << bits) - 1)) != arg) {
+    backtrace();
+    panic("check_bits_max err:arg %08x bits %d", arg, bits);
+    return false;
+  }
+  return true;
+}

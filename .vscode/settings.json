@@ -11,6 +11,7 @@
         "kdebug.h": "c",
         "monitor.h": "c",
         "assert.h": "c",
-        "kclock.h": "c"
+        "kclock.h": "c",
+        "pmap.h": "c"
     }
 }
