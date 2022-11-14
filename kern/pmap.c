@@ -121,9 +121,6 @@ void mem_init(void) {
   // Find out how much memory the machine has (npages & npages_basemem).
   i386_detect_memory();
 
-  // Remove this line when you're ready to test this function.
-  // panic("mem_init: This function is not finished\n");
-
   //////////////////////////////////////////////////////////////////////
   // create initial page directory.
   kern_pgdir = (pde_t *)boot_alloc(PGSIZE);
@@ -136,6 +133,8 @@ void mem_init(void) {
   // following line.)
 
   // Permissions: kernel R, user R
+  // 映射从UVPT开始的4MB空间，到kern dir的物理地址处。
+  // 即，这是映射了一级页表，这样的话，就会把以及页表的内容当成二级页表？？
   kern_pgdir[PDX(UVPT)] = PADDR(kern_pgdir) | PTE_U | PTE_P;
 
   //////////////////////////////////////////////////////////////////////
@@ -268,6 +267,7 @@ void page_init(void) {
   pages[kernel_start_page + pp].pp_link = pages[kernel_start_page].pp_link;
 
   //单测要求必须链表是顺序的,所以逆置它
+  //而且，其实如果内核分配page的话，肯定也优先连续分配
   struct PageInfo *reverse = page_free_list;
   page_free_list = page_free_list->pp_link;
   reverse->pp_link = NULL;
@@ -386,7 +386,6 @@ pte_t *pgdir_walk(pde_t *pgdir, const void *va, int create) {
 // above UTOP. As such, it should *not* change the pp_ref field on the
 // mapped pages.
 //
-// Hint: the TA solution uses pgdir_walk
 // 这个只是给内部使用的，UTOP之上的内存
 static void boot_map_region(pde_t *pgdir, uintptr_t va, size_t size,
                             physaddr_t pa, int perm) {
@@ -435,9 +434,6 @@ static void boot_map_region(pde_t *pgdir, uintptr_t va, size_t size,
 //   0 on success
 //   -E_NO_MEM, if page table couldn't be allocated
 //
-// Hint: The TA solution is implemented using pgdir_walk, page_remove,
-// and page2pa.
-//
 int page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm) {
   // Fill this function in
   if (!check_bits_max(perm, 12)) {
@@ -446,18 +442,11 @@ int page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm) {
   }
   pte_t *pg = pgdir_walk(pgdir, va, true);
 
-  // assert((pte_t *)pgdir[0] == pg);
   if (pg != NULL) {
     pp->pp_ref++;  //先++，防止被remove自己，导致free了，此时，*pp的ref为0
     page_remove(pgdir, va);
     *pg = page2pa(pp) | perm | PTE_P;
     tlb_invalidate(pgdir, va);
-    // if (pp - pages == 3) {
-    //   cprintf("map page info idx %d\n", pp - pages);
-    //   cprintf("pte %08x -- %08x %08x\n", *pg, check_va2pa(kern_pgdir,
-    //   PGSIZE),
-    //           pgdir_walk(pgdir, (void *)PGSIZE, false));
-    // }
     return 0;
   }
   return -E_NO_MEM;
@@ -471,8 +460,6 @@ int page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm) {
 // but should not be used by most callers.
 //
 // Return NULL if there is no page mapped at va.
-//
-// Hint: the TA solution uses pgdir_walk and pa2page.
 //
 struct PageInfo *page_lookup(pde_t *pgdir, void *va, pte_t **pte_store) {
   // Fill this function in
@@ -493,9 +480,6 @@ struct PageInfo *page_lookup(pde_t *pgdir, void *va, pte_t **pte_store) {
 //     (if such a PTE exists)
 //   - The TLB must be invalidated if you remove an entry from
 //     the page table.
-//
-// Hint: The TA solution is implemented using page_lookup,
-// 	tlb_invalidate, and page_decref.
 //
 void page_remove(pde_t *pgdir, void *va) {
   // Fill this function in
@@ -710,7 +694,6 @@ static physaddr_t check_va2pa(pde_t *pgdir, uintptr_t va) {
   pgdir = &pgdir[PDX(va)];
   if (!(*pgdir & PTE_P)) return ~0;
   p = (pte_t *)KADDR(PTE_ADDR(*pgdir));
-  // cprintf("page tbl entry loc %08x \n", &p[PTX(va)]);
   if (!(p[PTX(va)] & PTE_P)) return ~0;
   return PTE_ADDR(p[PTX(va)]);
 }
@@ -729,7 +712,6 @@ static void check_page(void) {
   assert((pp0 = page_alloc(0)));
   assert((pp1 = page_alloc(0)));
   assert((pp2 = page_alloc(0)));
-  cprintf("pp2 index=%d\n", pp2 - pages);
 
   assert(pp0);
   assert(pp1 && pp1 != pp0);
@@ -766,7 +748,6 @@ static void check_page(void) {
   assert(!page_alloc(0));
 
   // should be able to map pp2 at PGSIZE because it's already there
-  cprintf("seppppp\n");
   assert(page_insert(kern_pgdir, pp2, (void *)PGSIZE, PTE_W) == 0);
   assert(check_va2pa(kern_pgdir, PGSIZE) == page2pa(pp2));
   assert(pp2->pp_ref == 1);
@@ -784,7 +765,6 @@ static void check_page(void) {
   assert(check_va2pa(kern_pgdir, PGSIZE) == page2pa(pp2));
   assert(pp2->pp_ref == 1);
   assert(*pgdir_walk(kern_pgdir, (void *)PGSIZE, 0) & PTE_U);
-  cprintf("should %08x  -- %08x\n", kern_pgdir[0], PTE_U);
   assert(kern_pgdir[0] & PTE_U);
 
   // should be able to remap with fewer permissions
