@@ -100,7 +100,6 @@ static void *boot_alloc(uint32_t n) {
   // LAB 2: Your code here.
   void *alloc = nextfree;
   nextfree += ROUNDUP(n, PGSIZE);
-  debug("boot alloc %d bytes\n", ROUNDUP(n, PGSIZE));
   _boot_next_free = nextfree;
   return alloc;
 }
@@ -143,8 +142,6 @@ void mem_init(void) {
   // each physical page, there is a corresponding struct PageInfo in this
   // array.  'npages' is the number of physical pages in memory.  Use memset
   // to initialize all fields of each struct PageInfo to 0.
-  // Your code goes here:
-  debug("npages %d\n", npages);
   pages = (struct PageInfo *)boot_alloc(npages * sizeof(struct PageInfo));
   memset(pages, 0, npages * sizeof(struct PageInfo));
 
@@ -171,6 +168,11 @@ void mem_init(void) {
   //      (ie. perm = PTE_U | PTE_P)
   //    - pages itself -- kernel RW, user NONE
   // Your code goes here:
+  // 似乎是映射pages这个物理页管理部分的内存。。
+  // the new image at UPAGES,我没实现，也通过了。。
+  boot_map_region(kern_pgdir, UPAGES,
+                  ROUNDUP(sizeof(struct PageInfo) * npages, PGSIZE),
+                  PADDR(pages), PTE_W);
 
   //////////////////////////////////////////////////////////////////////
   // Use the physical memory that 'bootstack' refers to as the kernel
@@ -183,6 +185,10 @@ void mem_init(void) {
   //       overwrite memory.  Known as a "guard page".
   //     Permissions: kernel RW, user NONE
   // Your code goes here:
+  // 映射内核栈，并且提供保护机制
+  // guard page,栈空隙，很简单，不映射就行了。。
+  boot_map_region(kern_pgdir, KSTACKTOP - KSTKSIZE, KSTKSIZE,
+                  PADDR(bootstack), PTE_W);
 
   //////////////////////////////////////////////////////////////////////
   // Map all of physical memory at KERNBASE.
@@ -192,6 +198,9 @@ void mem_init(void) {
   // we just set up the mapping anyway.
   // Permissions: kernel RW, user NONE
   // Your code goes here:
+  // 这部分在boot pg tbl里面设置了
+  boot_map_region(kern_pgdir, KERNBASE, MEM_ADDR_TOP - KERNBASE + 1, 0,
+                  PTE_W);  //只有32位，所以要先减再+1
 
   // Check that the initial page directory has been set up correctly.
   check_kern_pgdir();
@@ -203,6 +212,8 @@ void mem_init(void) {
   //
   // If the machine reboots at this point, you've probably set up your
   // kern_pgdir wrong.
+  // 这里从内核的普通页表切换到了我们的这个新的page dir，它的大小是1
+  // page，通过boot alloc分配的。
   lcr3(PADDR(kern_pgdir));
 
   check_page_free_list(0);
@@ -291,7 +302,6 @@ void page_init(void) {
 //
 // Returns NULL if out of free memory.
 //
-// Hint: use page2kva and memset
 struct PageInfo *page_alloc(int alloc_flags) {
   // Fill this function in
   if (page_free_list != NULL) {
@@ -301,7 +311,6 @@ struct PageInfo *page_alloc(int alloc_flags) {
     if (alloc_flags & ALLOC_ZERO) {
       memset(page2kva(res), 0, PGSIZE);
     }
-    debug("alloc page %d\n", res - pages);
     return res;
   }
 
@@ -316,7 +325,7 @@ void page_free(struct PageInfo *pp) {
   // Fill this function in
   // Hint: You may want to panic if pp->pp_ref is nonzero or
   // pp->pp_link is not NULL.
-  debug("free page %d\n", pp - pages);
+  // debug("free page %d\n", pp - pages);
   if (pp->pp_link != NULL) panic("free page's pp_link != NULL");
   if (pp->pp_ref != 0) panic("free page's pp_ref != 0");
 
@@ -398,7 +407,9 @@ static void boot_map_region(pde_t *pgdir, uintptr_t va, size_t size,
     return;
   }
   uintptr_t p = va;
-  while (p < va + size) {
+  // 注意可能会溢出，所以不能计算va+size
+  size_t times = size / PGSIZE;
+  while (times--) {
     //每次都从头找，否则可能不在同一个page tbl
     pte_t *pg = pgdir_walk(pgdir, (void *)p, true);
     if (pg == NULL) {

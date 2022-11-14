@@ -82,7 +82,9 @@
  *     there if desired.  JOS user programs map pages temporarily at UTEMP.
  */
 
-#define KERN_CODE_START 0xF0100000 //1m处
+#define MEM_ADDR_TOP 0xFFFFFFFF  //整个内存地址空间的TOP，4GB
+
+#define KERN_CODE_START 0xF0100000  // 1m处
 
 // All physical memory mapped at this address
 // 这似乎是内核的地址的起始位置，它会被页表固定offset映射到1MB开始的位置
