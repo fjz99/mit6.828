@@ -187,8 +187,8 @@ void mem_init(void) {
   // Your code goes here:
   // 映射内核栈，并且提供保护机制
   // guard page,栈空隙，很简单，不映射就行了。。
-  boot_map_region(kern_pgdir, KSTACKTOP - KSTKSIZE, KSTKSIZE,
-                  PADDR(bootstack), PTE_W);
+  boot_map_region(kern_pgdir, KSTACKTOP - KSTKSIZE, KSTKSIZE, PADDR(bootstack),
+                  PTE_W);
 
   //////////////////////////////////////////////////////////////////////
   // Map all of physical memory at KERNBASE.
@@ -311,6 +311,10 @@ struct PageInfo *page_alloc(int alloc_flags) {
     if (alloc_flags & ALLOC_ZERO) {
       memset(page2kva(res), 0, PGSIZE);
     }
+
+#ifdef MEM_DEBUG
+    debug("alloc page %d\n", pp - pages);
+#endif
     return res;
   }
 
@@ -325,10 +329,12 @@ void page_free(struct PageInfo *pp) {
   // Fill this function in
   // Hint: You may want to panic if pp->pp_ref is nonzero or
   // pp->pp_link is not NULL.
-  // debug("free page %d\n", pp - pages);
+
   if (pp->pp_link != NULL) panic("free page's pp_link != NULL");
   if (pp->pp_ref != 0) panic("free page's pp_ref != 0");
-
+#ifdef MEM_DEBUG
+  debug("free page %d\n", pp - pages);
+#endif
   pp->pp_link = page_free_list;
   page_free_list = pp;
 }
