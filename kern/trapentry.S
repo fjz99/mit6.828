@@ -46,10 +46,23 @@
 /*
  * Lab 3: Your code here for generating entry points for the different traps.
  */
-
-
+//通过汇编+宏来完成代码生成，这样编译之后的c的函数指针刚好指向这里
+TRAPHANDLER_NOEC(fault0,0)
+TRAPHANDLER(fault13,13)
+TRAPHANDLER(fault14,14)
 
 /*
  * Lab 3: Your code here for _alltraps
  */
+_alltraps:
+	//注意push stack传递参数的顺序和push的顺序相反
+	pushl %ds //pushl似乎是32位的
+	pushl %es
+	pushal
+	mov $(GD_KD), %eax //ds和es的修改只能借助于eax间接完成
+	mov %eax, %ds 
+	mov %eax, %es 
 
+	//上面只是处理了结构体的内容，但是我们传递的参数是指针
+	pushl %esp //push esp即可传递指针
+	call trap

@@ -43,6 +43,7 @@
 
 #include <inc/types.h>
 
+// 正好和pushad指令的顺序是倒过来的
 struct PushRegs {
 	/* registers as pushed by pusha */
 	uint32_t reg_edi;
