@@ -53,9 +53,11 @@ void trap_init(void) {
   extern struct Segdesc gdt[];
 
   // LAB 3: Your code here.
-  SETGATE(idt[0], true, GD_KT, fault0, 0);
-  SETGATE(idt[13], true, GD_KT, fault13, 0);
-  SETGATE(idt[14], true, GD_KT, fault14, 0);
+  SETGATE(idt[T_DIVIDE], true, GD_KT, fault0, 0);
+  SETGATE(idt[T_BRKPT], true, GD_KT, fault3, 3);
+  SETGATE(idt[T_GPFLT], true, GD_KT, fault13, 0);
+  SETGATE(idt[T_PGFLT], true, GD_KT, fault14, 0);
+  SETGATE(idt[T_SYSCALL], true, GD_KT, fault48, 3);
 
   // Per-CPU setup
   trap_init_percpu();
@@ -124,7 +126,8 @@ void print_regs(struct PushRegs *regs) {
 }
 
 static void abort_env(struct Trapframe *tf) {
-  debug("Abort Env %08x due to %s Exception/Interrput\n", curenv->env_id, trapname(tf->tf_trapno));
+  debug("Abort Env %08x due to %s Exception/Interrput\n", curenv->env_id,
+        trapname(tf->tf_trapno));
   print_trapframe(tf);
   env_destroy(curenv);
 }
@@ -133,13 +136,27 @@ static void trap_dispatch(struct Trapframe *tf) {
   // Handle processor exceptions.
   // LAB 3: Your code here.
   switch (tf->tf_trapno) {
-    case 0:
-    case 13:
+    case T_DIVIDE:
+    case T_GPFLT:
       abort_env(tf);
       return;
-    case 14:
+    case T_BRKPT:
+      trap_handler(tf);
+      return;
+    case T_PGFLT:
       page_fault_handler(tf);
       return;
+    case T_SYSCALL: {
+      // int32_t rt = syscall(tf->tf_regs.reg_eax, tf->tf_regs.reg_edx,
+      //                      tf->tf_regs.reg_ecx, tf->tf_regs.reg_ebx,
+      //                      tf->tf_regs.reg_edi, tf->tf_regs.reg_esi);
+      // debug("SysCall rt %08x\n", rt);
+      //直接通过这个设置返回值即可，因为eax存放在栈上，会再次恢复的
+      tf->tf_regs.reg_eax = syscall(tf->tf_regs.reg_eax, tf->tf_regs.reg_edx,
+                                    tf->tf_regs.reg_ecx, tf->tf_regs.reg_ebx,
+                                    tf->tf_regs.reg_edi, tf->tf_regs.reg_esi);
+      return;
+    }
     default:
       // TODO trap没有被处理
       break;
@@ -210,4 +227,11 @@ void page_fault_handler(struct Trapframe *tf) {
           tf->tf_eip);
   print_trapframe(tf);
   env_destroy(curenv);
+}
+
+void trap_handler(struct Trapframe *tf) {
+  debug("Got int 3\n");
+  while (true) {
+    monitor(tf);
+  }
 }

@@ -178,11 +178,12 @@ void mem_init(void) {
   //      (ie. perm = PTE_U | PTE_P)
   //    - pages itself -- kernel RW, user NONE
   // Your code goes here:
-  // 似乎是映射pages这个物理页管理部分的内存。。
-  // the new image at UPAGES,我没实现，也通过了。。
+  // 似乎是映射pages这个物理页管理部分的内存
+  // 因为这些映射会被用户复用，所以映射的时候把它表示为用户可读
+  // 内核直接通过pages的虚拟地址访问，所以不需要映射也行
   boot_map_region(kern_pgdir, UPAGES,
                   ROUNDUP(sizeof(struct PageInfo) * npages, PGSIZE),
-                  PADDR(pages), PTE_W);
+                  PADDR(pages), PTE_U);
 
   //////////////////////////////////////////////////////////////////////
   // Map the 'envs' array read-only by the user at linear address UENVS
@@ -192,7 +193,7 @@ void mem_init(void) {
   //    - envs itself -- kernel RW, user NONE
   // LAB 3: Your code here.
   boot_map_region(kern_pgdir, UENVS, ROUNDUP(sizeof(struct Env) * NENV, PGSIZE),
-                  PADDR(envs), PTE_W);
+                  PADDR(envs), PTE_U);
 
   //////////////////////////////////////////////////////////////////////
   // Use the physical memory that 'bootstack' refers to as the kernel
@@ -997,10 +998,23 @@ static void check_page_installed_pgdir(void) {
 }
 
 // 通过页表把虚拟地址映射为物理地址
+// 遇到问题直接panic
 physaddr_t map_va2pa(pde_t *pgdir, void *va) {
   pte_t *pg = pgdir_walk(pgdir, va, false);
   if (!pg) panic("cannot find mapping for %08x, pte not exists", va);
   if (!(*pg & PTE_P))
     panic("cannot find mapping for %08x, pte is %08x", va, *pg);
   return PTE_ADDR(*pg) + ((physaddr_t)va & (PGSIZE - 1));
+}
+
+// 检查用户空间的地址是否是合法的
+bool check_user_mem(pde_t *pgdir, void *va, size_t len, int perm) {
+  void *p = va;
+  while (p < va + len) {
+    pte_t *pg = pgdir_walk(pgdir, p, false);
+    if (!pg || !(*pg & PTE_P) || !(*pg & perm)) return false;
+
+    p += PGSIZE;
+  }
+  return true;
 }

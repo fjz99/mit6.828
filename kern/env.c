@@ -181,6 +181,7 @@ static int env_setup_vm(struct Env *e) {
   e->env_pgdir = page2kva(
       p);  //这里是虚拟地址，因为fork是系统调用，在内核态执行，而且虚拟地址才能被C语言访问
   for (size_t i = PDX(UTOP); i < PDX(UVPT); ++i) {
+    //不能直接复制页表。。
     e->env_pgdir[i] = kern_pgdir[i];
     //需要++引用，否则当user的pgdir释放的时候，会导致内核的页表被释放
     pa2page(PTE_ADDR(kern_pgdir[i]))->pp_ref++;
@@ -272,23 +273,27 @@ static void region_alloc(struct Env *e, void *va, size_t len) {
   //   'va' and 'len' values that are not page-aligned.
   //   You should round va down, and round (va + len) up.
   //   (Watch out for corner-cases!)
+  // debug("mapping %08x,size=%08x\n", va, len);
   va = ROUNDDOWN(va, PGSIZE);
-  len = ROUNDUP(len, PGSIZE);
+  void *end = ROUNDUP(va + len, PGSIZE);
   if (va >= (void *)UTOP) panic("va > UTOP!");
   void *p = va;
-  while (p < va + len) {
-    struct PageInfo *info = page_alloc(0);
-    if (!info) panic("OOM err");
-    info->pp_ref++;
-    pte_t *pg = pgdir_walk(e->env_pgdir, va, true);
+  while (p < end) {
+    // debug("mapping %08x\n", p);
+    pte_t *pg = pgdir_walk(e->env_pgdir, p, true);
     if (!pg) panic("page tbl alloc err");
-    //这个addr已经映射了！
-    // FIXME
+    //这个addr已经映射了,其实是有可能的，因为前面有向上取整，向页对齐的操作，映射了就不分配物理页了
+    if (!*pg) {
+      struct PageInfo *info = page_alloc(0);
+      if (!info) panic("OOM err");
+      info->pp_ref++;
+      *pg = page2pa(info) | PTE_P | PTE_W | PTE_U;
+    }
+
     // if (*pg) {
     //   _backtrace();
-    //   panic("va %08x refer to an used mem mapping %08x", va, *pg);
+    //   panic("va %08x refer to an used mem mapping %08x", p, *pg);
     // }
-    *pg = page2pa(info) | PTE_P | PTE_W | PTE_U;
 
     p += PGSIZE;
   }
@@ -356,18 +361,32 @@ static void load_icode(struct Env *e, uint8_t *binary) {
   for (; ph < eph; ph++) {
     //加载每个段
     if (ph->p_type == ELF_PROG_LOAD) {
-      debug("load elf: to va %08x , memsize %08x,file size %08x\n", ph->p_va,
-              ph->p_memsz, ph->p_filesz);
+      debug("load elf: to va [%08x-%08x] , memsize %08x,file size %08x\n",
+            ph->p_va, ph->p_va + ph->p_memsz, ph->p_memsz, ph->p_filesz);
+      // 注意分配的时候按照大的分配，否则ph->p_memsz > ph->p_filesz的时候会错误
       region_alloc(e, (void *)ph->p_va, ph->p_memsz);
 
       //下面将内核地址空间中的elf加载到用户地址空间的虚拟地址中
       //注意此时还没有加载用户进程的页表，所以现在只能暂时使用物理地址进行转换
+      //注意未必是连续的物理page，所以要一直转换！
       physaddr_t pa = map_va2pa(e->env_pgdir, (void *)ph->p_va);
-      memcpy(KADDR(pa), binary + ph->p_offset, ph->p_filesz);
+      uint8_t *kva = (uint8_t *)KADDR(pa), *uva = (uint8_t *)ph->p_va,
+              *input_start = (uint8_t *)(binary + ph->p_offset);
+      for (int i = 0; i < ph->p_memsz; ++i) {
+        if (!((uint32_t)uva % PGSIZE)) {
+          //刚好到达页边界
+          pa = map_va2pa(e->env_pgdir, uva);
+          kva = (uint8_t *)KADDR(pa);
+        }
 
-      if (ph->p_memsz > ph->p_filesz) {
-        pa = map_va2pa(e->env_pgdir, (void *)(ph->p_va + ph->p_filesz));
-        memset(KADDR(pa), 0, ph->p_memsz - ph->p_filesz);
+        if (i < ph->p_filesz) {
+          *kva = *input_start;
+        } else {
+          *kva = 0;
+        }
+        uva++;
+        kva++;
+        input_start++;
       }
     }
   }

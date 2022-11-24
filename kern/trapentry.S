@@ -48,8 +48,11 @@
  */
 //通过汇编+宏来完成代码生成，这样编译之后的c的函数指针刚好指向这里
 TRAPHANDLER_NOEC(fault0,0)
+TRAPHANDLER_NOEC(fault3,3)
 TRAPHANDLER(fault13,13)
 TRAPHANDLER(fault14,14)
+
+TRAPHANDLER_NOEC(fault48,48)
 
 /*
  * Lab 3: Your code here for _alltraps
