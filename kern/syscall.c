@@ -19,10 +19,11 @@ static void sys_cputs(const char *s, size_t len) {
 
   // LAB 3: Your code here.
   // 传递的参数是用户空间的虚拟地址
-  if (!check_user_mem(curenv->env_pgdir, (void *)s, len, PTE_U)) {
-    debug("illegal sys_cputs call addr arg %08x\n", s);
-    env_destroy(curenv);
-  }
+  // if (!check_user_mem(curenv->env_pgdir, (void *)s, len, PTE_U)) {
+  //   debug("illegal sys_cputs call addr arg %08x\n", s);
+  //   env_destroy(curenv);
+  // }
+  user_mem_assert(curenv, s, len, 0);
 
   // Print the string supplied by the user.
   cprintf("%.*s", len, s);

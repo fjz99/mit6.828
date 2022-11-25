@@ -584,7 +584,24 @@ static uintptr_t user_mem_check_addr;
 //
 int user_mem_check(struct Env *env, const void *va, size_t len, int perm) {
   // LAB 3: Your code here.
+  if ((int)va >= ULIM) {
+    user_mem_check_addr = (uintptr_t)va;
+    return -E_FAULT;
+  }
+  void *start = ROUNDDOWN((void *)va, PGSIZE), *p = start;
+  void *end = ROUNDUP((void *)va + len, PGSIZE);
+  while (p < end) {
+    pte_t *pg = pgdir_walk(env->env_pgdir, p, false);
+    if (!pg || !(*pg & PTE_P) || !(*pg & perm)) {
+      if (p == start)
+        user_mem_check_addr = (uintptr_t)va;
+      else
+        user_mem_check_addr = (uintptr_t)p;
+      return -E_FAULT;
+    }
 
+    p += PGSIZE;
+  }
   return 0;
 }
 
@@ -1008,13 +1025,13 @@ physaddr_t map_va2pa(pde_t *pgdir, void *va) {
 }
 
 // 检查用户空间的地址是否是合法的
-bool check_user_mem(pde_t *pgdir, void *va, size_t len, int perm) {
-  void *p = va;
-  while (p < va + len) {
-    pte_t *pg = pgdir_walk(pgdir, p, false);
-    if (!pg || !(*pg & PTE_P) || !(*pg & perm)) return false;
+// bool check_user_mem(pde_t *pgdir, void *va, size_t len, int perm) {
+//   void *p = va;
+//   while (p < va + len) {
+//     pte_t *pg = pgdir_walk(pgdir, p, false);
+//     if (!pg || !(*pg & PTE_P) || !(*pg & perm)) return false;
 
-    p += PGSIZE;
-  }
-  return true;
-}
+//     p += PGSIZE;
+//   }
+//   return true;
+// }
