@@ -1,0 +1,18 @@
+{
+    "files.associations": {
+        "*.md": "markdown",
+        "*.rmd": "markdown",
+        "strace_out": "log",
+        "pmap.h": "c",
+        "trap.h": "c",
+        "spinlock.h": "c",
+        "lib.h": "c",
+        "kdebug.h": "c",
+        "string.h": "c",
+        "mmu.h": "c",
+        "env.h": "c",
+        "x86.h": "c",
+        "types.h": "c",
+        "sched.h": "c"
+    }
+}
