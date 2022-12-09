@@ -1,0 +1,33 @@
+{
+    "files.associations": {
+        "*.md": "markdown",
+        "*.rmd": "markdown",
+        "strace_out": "log",
+        "pmap.h": "c",
+        "trap.h": "c",
+        "spinlock.h": "c",
+        "lib.h": "c",
+        "kdebug.h": "c",
+        "string.h": "c",
+        "mmu.h": "c",
+        "env.h": "c",
+        "x86.h": "c",
+        "types.h": "c",
+        "sched.h": "c",
+        "elf.h": "c",
+        "limits": "c",
+        "*.tcc": "c",
+        "assert.h": "c",
+        "stdio.h": "c",
+        "error.h": "c",
+        "stdarg.h": "c",
+        "cmath": "c",
+        "cstdarg": "c",
+        "cstdio": "c",
+        "cstdlib": "c",
+        "type_traits": "c",
+        "cinttypes": "c",
+        "cstdint": "c",
+        "typeinfo": "c"
+    }
+}
