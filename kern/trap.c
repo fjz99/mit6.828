@@ -56,13 +56,15 @@ void trap_init(void) {
   extern struct Segdesc gdt[];
 
   // LAB 3: Your code here.
-  //初始化成中断门，此时就会自动关中断了！
+  // 初始化成中断门，此时就会自动关中断了！
   SETGATE(idt[T_DIVIDE], false, GD_KT, fault0, 0);
   SETGATE(idt[T_BRKPT], false, GD_KT, fault3, 3);
   SETGATE(idt[T_GPFLT], false, GD_KT, fault13, 0);
   SETGATE(idt[T_PGFLT], false, GD_KT, fault14, 0);
   SETGATE(idt[T_SYSCALL], false, GD_KT, fault48, 3);
-  SETGATE(idt[IRQ_TIMER + IRQ_OFFSET], false, GD_KT, fault32, 0);
+  SETGATE(idt[IRQ_OFFSET + IRQ_TIMER], false, GD_KT, fault32, 0);
+  SETGATE(idt[IRQ_OFFSET + IRQ_KBD], false, GD_KT, fault33, 0);
+  SETGATE(idt[IRQ_OFFSET + IRQ_SERIAL], false, GD_KT, fault36, 0);
 
   // Per-CPU setup
   trap_init_percpu();
@@ -173,7 +175,7 @@ static void abort_env(struct Trapframe *tf) {
 static void tick(struct Trapframe *tf) {
   // debug("CPU %d Env %08x Get tick, force reschedule\n", cpunum(),
   // curenv ? curenv->env_id : 0);
-  lapic_eoi();  //别忘了加这个，否则中断触发一次之后就无了
+  lapic_eoi();  // 别忘了加这个，否则中断触发一次之后就无了
   sched_yield();
 }
 
@@ -200,7 +202,7 @@ static void trap_dispatch(struct Trapframe *tf) {
       //                      tf->tf_regs.reg_ecx, tf->tf_regs.reg_ebx,
       //                      tf->tf_regs.reg_edi, tf->tf_regs.reg_esi);
       // debug("SysCall rt %08x\n", rt);
-      //直接通过这个设置返回值即可，因为eax存放在栈上，会再次恢复的
+      // 直接通过这个设置返回值即可，因为eax存放在栈上，会再次恢复的
       tf->tf_regs.reg_eax = syscall(tf->tf_regs.reg_eax, tf->tf_regs.reg_edx,
                                     tf->tf_regs.reg_ecx, tf->tf_regs.reg_ebx,
                                     tf->tf_regs.reg_edi, tf->tf_regs.reg_esi);
@@ -208,6 +210,14 @@ static void trap_dispatch(struct Trapframe *tf) {
     }
     case IRQ_OFFSET + IRQ_TIMER:
       tick(tf);
+      return;
+    case IRQ_OFFSET + IRQ_KBD:
+      //响应键盘中断，这里把数据存放到了console的buffer中，但是这是内核态的console buf，不是用户态的
+      //用户态下，会通过syscall来读取这个buf，从而实现getchar()函数
+      kbd_intr(); 
+      return;
+    case IRQ_OFFSET + IRQ_SERIAL: // 似乎是串口数据
+      serial_intr();
       return;
     default:
       // TODO trap没有被处理
@@ -298,7 +308,7 @@ void trap(struct Trapframe *tf) {
   // assert(curenv && curenv->env_status == ENV_RUNNING);
   // env_run(curenv);
 
-  //返回进程执行，如果当前进程被kill了，那就重新调度
+  // 返回进程执行，如果当前进程被kill了，那就重新调度
   if (curenv != NULL && curenv->env_status == ENV_RUNNING)
     env_run(curenv);
   else
@@ -360,18 +370,18 @@ void page_fault_handler(struct Trapframe *tf) {
           tf->tf_eip);
 
   if (curenv->env_pgfault_upcall) {
-    //异常栈已经在用户函数中被分配了
-    //检查异常栈是否溢出
+    // 异常栈已经在用户函数中被分配了
+    // 检查异常栈是否溢出
     uintptr_t esp = tf->tf_esp;
 
-    //压入UTrapframe结构
+    // 压入UTrapframe结构
     struct UTrapframe frame = {fault_va,   tf->tf_err,    tf->tf_regs,
                                tf->tf_eip, tf->tf_eflags, tf->tf_esp};
     uint32_t *base = (uint32_t *)UXSTACKTOP;
     if (esp >= UXSTACKTOP - PGSIZE && esp < UXSTACKTOP) {
-      //如果是嵌套异常，那么先压入一个word
+      // 如果是嵌套异常，那么先压入一个word
       base = (uint32_t *)esp;
-      base--;  //指向刚好最后一个位置
+      base--;  // 指向刚好最后一个位置
       user_mem_assert(curenv, base, 4, PTE_P | PTE_W | PTE_U);
       *base = 0;
     }
@@ -379,13 +389,13 @@ void page_fault_handler(struct Trapframe *tf) {
     // cprintf("UTrapframe size %d stack esp %08x\n", sizeof(struct UTrapframe),
     //         base);
 
-    //检查下异常栈，保证安全
+    // 检查下异常栈，保证安全
     user_mem_assert(curenv, base, sizeof(struct UTrapframe),
                     PTE_P | PTE_W | PTE_U);
     *((struct UTrapframe *)base) = frame;
     // cprintf("frame va %08x,eip %08x,esp %08x,eflags %08x\n", fault_va,
     // frame.utf_eip, frame.utf_esp, frame.utf_eflags);
-    //调用异常处理函数
+    // 调用异常处理函数
     curenv->env_tf.tf_eip = (uintptr_t)curenv->env_pgfault_upcall;
     curenv->env_tf.tf_esp = (uintptr_t)base;
     env_run(curenv);

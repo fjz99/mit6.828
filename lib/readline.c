@@ -18,6 +18,7 @@ readline(const char *prompt)
 #endif
 
 	i = 0;
+	// 根据shell自己的标准输入流是否是console中的标准输入流，来决定是否回显，否则的话，比如是流重定向，就不回显。
 	echoing = iscons(0);
 	while (1) {
 		c = getchar();

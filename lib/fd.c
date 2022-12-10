@@ -10,6 +10,7 @@
 #define FDTABLE		0xD0000000
 // Bottom of file data area.  We reserve one data page for each FD,
 // which devices can use if they choose.
+// 每个文件描述符在从 FILEDATA 开始的区域中还有一个可选的“数据页”，设备可以选择使用这些页面
 #define FILEDATA	(FDTABLE + MAXFD*PGSIZE)
 
 // Return the 'struct Fd*' for file descriptor index i
@@ -175,6 +176,7 @@ close_all(void)
 // file and the file offset of the other.
 // Closes any previously open file descriptor at 'newfdnum'.
 // This is implemented using virtual memory tricks (of course!).
+// 让newfd的底层和oldFd一样
 int
 dup(int oldfdnum, int newfdnum)
 {

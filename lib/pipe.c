@@ -19,12 +19,15 @@ struct Dev devpipe =
 
 #define PIPEBUFSIZ 32		// small to provoke races
 
+// 在共享内存里维护了一个环形缓冲区，一个读一个写
 struct Pipe {
 	off_t p_rpos;		// read position
 	off_t p_wpos;		// write position
 	uint8_t p_buf[PIPEBUFSIZ];	// data buffer
 };
 
+// 每个Fd都会有自己的一个data page，这个可以用于实现pipe，只要内存共享即可
+// 注意文件描述符page和数据page都是共享的
 int
 pipe(int pfd[2])
 {
@@ -79,7 +82,7 @@ _pipeisclosed(struct Fd *fd, struct Pipe *p)
 
 	while (1) {
 		n = thisenv->env_runs;
-		ret = pageref(fd) == pageref(p);
+		ret = pageref(fd) == pageref(p); // ？？？
 		nn = thisenv->env_runs;
 		if (n == nn)
 			return ret;
@@ -101,6 +104,7 @@ pipeisclosed(int fdnum)
 	return _pipeisclosed(fd, p);
 }
 
+// 会阻塞直到读到数据或者没有writer了为止
 static ssize_t
 devpipe_read(struct Fd *fd, void *vbuf, size_t n)
 {
@@ -136,6 +140,7 @@ devpipe_read(struct Fd *fd, void *vbuf, size_t n)
 	return i;
 }
 
+// 阻塞写，直到写完或者没有readers了为止
 static ssize_t
 devpipe_write(struct Fd *fd, const void *vbuf, size_t n)
 {

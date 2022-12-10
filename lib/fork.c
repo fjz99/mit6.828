@@ -34,7 +34,7 @@ static void pgfault(struct UTrapframe *utf) {
   // page to the old page's address.
   // Hint:
   //   You should make three system calls.
-  //替换map的时候会自动根据引用计数来回收物理page
+  // 替换map的时候会自动根据引用计数来回收物理page
   // LAB 4: Your code here.
   void *tmp = (void *)PFTEMP;
   // 不能读取全局的thisenv，因为子进程执行时会直接触发pg fault
@@ -70,19 +70,24 @@ static int duppage(envid_t envid, unsigned pn) {
   int perm = 0;
   pte_t tbl = uvpt[pn];
   if (!(tbl & PTE_P)) return -1;
+  if (tbl & PTE_SHARE) {
+    // 共享，只复制页表
+    if ((r = sys_page_map(thisenv->env_id, pgaddr, envid, pgaddr, tbl & PTE_SYSCALL)) < 0)
+      panic("sys_page_map err");
+    return 0;
+  }
   if ((tbl & PTE_W) || (tbl & PTE_COW)) perm = PTE_COW;
   //   cprintf("duppage:map page [%08x,%08x) with perm %08x\n", pn * PGSIZE,
   //           (pn + 1) * PGSIZE, perm);
   if ((r = sys_page_map(thisenv->env_id, pgaddr, envid, pgaddr, perm)) < 0)
     panic("sys_page_map err");
 
-  //映射我自己
+  // 映射我自己
   if ((r = sys_page_map(thisenv->env_id, pgaddr, thisenv->env_id, pgaddr,
                         perm)) < 0)
     panic("sys_page_map err");
 
   // LAB 4: Your code here.
-  //   panic("duppage not implemented");
   return 0;
 }
 
@@ -132,7 +137,7 @@ envid_t fork(void) {
 
     if ((r = sys_env_set_status(envid, ENV_RUNNABLE)) < 0) panic("err");
   } else {
-    //子进程
+    // 子进程
     thisenv = &envs[ENVX(sys_getenvid())];
   }
   return envid;

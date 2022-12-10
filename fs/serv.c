@@ -8,7 +8,7 @@
 
 #include "fs.h"
 
-#define debug 1
+#define debug 0
 
 // The file system server maintains three structures
 // for each open file.
@@ -156,7 +156,7 @@ int serve_open(envid_t envid, struct Fsreq_open *req, void **pg_store,
   // store its permission in *perm_store
   // 即ipc send的时候发送的page
   *pg_store = o->o_fd;
-  *perm_store = PTE_P | PTE_U | PTE_W | PTE_SHARE;
+  *perm_store = PTE_P | PTE_U | PTE_W | PTE_SHARE;  // 把Fd设置为share
 
   return 0;
 }

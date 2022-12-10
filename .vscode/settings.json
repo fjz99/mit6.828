@@ -28,6 +28,7 @@
         "type_traits": "c",
         "cinttypes": "c",
         "cstdint": "c",
-        "typeinfo": "c"
+        "typeinfo": "c",
+        "fs.h": "c"
     }
 }

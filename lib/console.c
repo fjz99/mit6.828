@@ -39,6 +39,7 @@ static ssize_t devcons_write(struct Fd*, const void*, size_t);
 static int devcons_close(struct Fd*);
 static int devcons_stat(struct Fd*, struct Stat*);
 
+// 实现标准输入输出流的dev
 struct Dev devcons =
 {
 	.dev_id =	'c',
@@ -49,6 +50,7 @@ struct Dev devcons =
 	.dev_stat =	devcons_stat
 };
 
+// 根据dev类型即可检查
 int
 iscons(int fdnum)
 {
@@ -83,7 +85,7 @@ devcons_read(struct Fd *fd, void *vbuf, size_t n)
 	if (n == 0)
 		return 0;
 
-	while ((c = sys_cgetc()) == 0)
+	while ((c = sys_cgetc()) == 0) // 非阻塞的
 		sys_yield();
 	if (c < 0)
 		return c;
@@ -114,7 +116,7 @@ devcons_write(struct Fd *fd, const void *vbuf, size_t n)
 static int
 devcons_close(struct Fd *fd)
 {
-	USED(fd);
+	USED(fd); // 似乎是编译器trick？
 
 	return 0;
 }

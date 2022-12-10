@@ -26,6 +26,8 @@ void fault3();
 void fault13();
 void fault14();
 void fault32();//clock
+void fault33();//KBD
+void fault36();//串口
 void fault48();//syscall
 
 #endif /* JOS_KERN_TRAP_H */
