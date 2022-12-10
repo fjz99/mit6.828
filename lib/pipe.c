@@ -82,9 +82,11 @@ _pipeisclosed(struct Fd *fd, struct Pipe *p)
 
 	while (1) {
 		n = thisenv->env_runs;
-		ret = pageref(fd) == pageref(p); // ？？？
+		// fd的引用数要算上内核的，而且读写都是一个data，假设只有我打开了，那么应该fd是2，p是1（或者2？）
+		// 跳过这个问题！
+		ret = pageref(fd) == pageref(p);
 		nn = thisenv->env_runs;
-		if (n == nn)
+		if (n == nn) // 类似于CAS，如果没有发生进程终止，那么ret的值就是正确的
 			return ret;
 		if (n != nn && ret == 1)
 			cprintf("pipe race avoided\n", n, thisenv->env_runs, ret);

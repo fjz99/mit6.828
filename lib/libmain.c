@@ -23,7 +23,6 @@ libmain(int argc, char **argv)
 	umain(argc, argv);
 
 	// exit gracefully
-	// cprintf("exit! %08x\n",thisenv->env_id);
 	exit();
 }
 

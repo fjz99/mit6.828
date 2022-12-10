@@ -220,7 +220,7 @@ static void trap_dispatch(struct Trapframe *tf) {
       serial_intr();
       return;
     default:
-      // TODO trap没有被处理
+      // trap没有被处理
       break;
   }
 
@@ -366,8 +366,8 @@ void page_fault_handler(struct Trapframe *tf) {
   //   To change what the user environment runs, modify 'curenv->env_tf'
   //   (the 'tf' variable points at 'curenv->env_tf').
   // LAB 4: Your code here.
-  cprintf("[%08x] user fault va %08x ip %08x\n", curenv->env_id, fault_va,
-          tf->tf_eip);
+  // cprintf("[%08x] user fault va %08x ip %08x\n", curenv->env_id, fault_va,
+          // tf->tf_eip);
 
   if (curenv->env_pgfault_upcall) {
     // 异常栈已经在用户函数中被分配了
